@@ -114,7 +114,7 @@ def main():
     print_status()
 
     sct = mss.mss()
-    monitor = sct.monitors[2] 
+    monitor = sct.monitors[0] 
 
     screen_width = int(monitor['width'])
     screen_height = int(monitor['height'])
@@ -137,7 +137,6 @@ def main():
 
             img_bgr = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
 
-            # Run detection
             results = model(img_bgr)
             detections = results.pred[0][results.pred[0][:, 4] > conf_threshold]
             detections = sorted(detections, key=lambda x: x[4], reverse=True)
@@ -151,14 +150,11 @@ def main():
                 for detection in detections:
                     *xyxy, conf, cls = detection.cpu().numpy()
 
-                    # Calculate the width and height of the bounding box
                     box_width = xyxy[2] - xyxy[0]
                     box_height = xyxy[3] - xyxy[1]
 
-                    # Calculate the proportional offset
                     offset = int(box_height * offset_ratio)
 
-                    # Calculate the position slightly below the top of the bounding box
                     top_x_relative = int((xyxy[0] + xyxy[2]) / 2)
                     top_y_relative = int(xyxy[1] + offset)
 
@@ -172,12 +168,10 @@ def main():
                         'height': int(box_height)
                     }
 
-                    # Draw the bounding box and label on the image
                     cv2.rectangle(img_bgr, (int(xyxy[0]), int(xyxy[1])), (int(xyxy[2]), int(xyxy[3])), (0, 255, 0), 2)
                     cv2.putText(img_bgr, f'{int(cls)}: {conf:.2f}', (int(xyxy[0]), int(xyxy[1]) - 10),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
-                    # Calculate the deadzone as a percentage of the bbox size
                     deadzone_width = 0.05 * bbox_coords['width']
                     deadzone_height = 0.05 * bbox_coords['height']
 
@@ -192,36 +186,32 @@ def main():
                         detected = True
 
             if detected:
-                # Real-time adjustments
                 if aiming_enabled and right_mouse_pressed:
-                    # Apply the deadzone check
                     if (abs(top_middle_x_closest - screen_center_x) > deadzone_width or
                         abs(top_middle_y_closest - screen_center_y) > deadzone_height):
 
                         delta_x = top_middle_x_closest - screen_center_x
                         delta_y = top_middle_y_closest - screen_center_y
 
-                        # Adjust sensitivity and apply smoother movement
                         delta_x *= sensitivity_scale
                         delta_y *= sensitivity_scale
 
-                        # Move mouse
                         mouse_controller.mouse_move(delta_x, delta_y, assistance)
 
                 if auto_shoot_enabled and alt_pressed:
-                    # Auto-shoot when the target is detected
                     if is_point_in_bbox(screen_center_x, screen_center_y, closest_bbox):
                         mouse_controller.click()
 
-            # Display the image with detections
+            end_time = time.time()
+            fps = 1 / (end_time - start_time)
+
+            cv2.putText(img_bgr, f'FPS: {fps:.2f}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+
             cv2.imshow("Object Detection", img_bgr)
 
-            # Exit on 'q' key
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
-            end_time = time.time()
-            fps = 1 / (end_time - start_time)
             if debug_mode:
                 print(f"FPS: {fps:.2f}")
 
@@ -229,6 +219,7 @@ def main():
             print(f"Error: {e}")
 
     cv2.destroyAllWindows()
+
 
 if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
