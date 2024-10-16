@@ -8,14 +8,16 @@ import cv2
 import controller
 from pynput import mouse, keyboard
 
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
+
 # Global settings
 aiming_enabled = False
 auto_shoot_enabled = False
 debug_mode = False
-detection_width = 300
-detection_height = 300
-sensitivity_scale = 0.2  # Default sensitivity
-assistance = 0.05  # Default assistance
+FOV = 300
+sensitivity_scale = 0.2 
+assistance = 0.05  
 
 # ASCII Art for Banner
 ascii_art = r"""
@@ -105,26 +107,24 @@ def keyboard_release_handler(key):
         pass
 
 def main():
-    global screen_center_x, screen_center_y, aiming_enabled, auto_shoot_enabled, detection_width, detection_height, bbox
+    global screen_center_x, screen_center_y, aiming_enabled, auto_shoot_enabled, FOV, bbox
     conf_threshold = 0.35
     offset_ratio = 0.10
 
     print_status()
 
     sct = mss.mss()
-    monitor = sct.monitors[1]  # Use primary monitor
+    monitor = sct.monitors[2] 
 
     screen_width = int(monitor['width'])
     screen_height = int(monitor['height'])
     screen_center_x = screen_width // 2
     screen_center_y = screen_height // 2
 
-    bbox = {
-        'top': (screen_height - detection_height) // 2,
-        'left': (screen_width - detection_width) // 2,
-        'width': detection_width,
-        'height': detection_height
-    }
+    bbox = {'top': (screen_center_y - (FOV // 2)),
+            'left': (screen_center_x - (FOV // 2)),
+            'width': FOV,
+            'height': FOV}
 
     cv2.namedWindow("Object Detection", cv2.WINDOW_NORMAL)
 
@@ -132,11 +132,9 @@ def main():
         try:
             start_time = time.time()
 
-            # Take screenshot
             screenshot = sct.grab(bbox)
             img = np.array(screenshot)
 
-            # Convert image from BGRA to BGR for OpenCV
             img_bgr = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
 
             # Run detection
